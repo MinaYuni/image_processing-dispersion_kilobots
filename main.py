@@ -101,20 +101,102 @@ def black_edges(name_image):
     thresh = cv2.threshold(gray, 30, 255, cv2.THRESH_BINARY)[1]
 
     # write result to disk
-    path_save = path_dir + name_image + "_black_edges.jpg"
+    new_name = name_image + "_be"
+    path_save = path_dir + new_name + ".jpg"
     cv2.imwrite(path_save, thresh)
     print("Image with edges detection save to : " + path_save)
 
     cv2.destroyAllWindows()
 
-    return path_save
+    return new_name
+
+
+def remove_shadow(name_image):
+    # load image
+    path_dir = "./data/images/"
+    path = path_dir + name_image + ".jpg"
+    img = cv2.imread(path)
+
+    # Convert the image to grayscale
+    gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+
+    # Equalize the histogram
+    enhanced = cv2.equalizeHist(gray)
+
+    # Save the result
+    new_name = name_image + "_rs"
+    path_save = path_dir + new_name + ".jpg"
+    cv2.imwrite(path_save, enhanced)
+    print("Image with edges detection save to : " + path_save)
+
+    return new_name
+
+
+def round_object(name_image, nb_kilobots, p1, p2):
+    # load image
+    path_dir = "./data/images/"
+    path = path_dir + name_image + ".jpg"
+    image = cv2.imread(path)
+    gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+
+    # Use the HoughCircles function to detect circles
+    # liste des objets ronds détectés
+    circles = cv2.HoughCircles(gray, cv2.HOUGH_GRADIENT, 1, 20, param1=p1, param2=p2, minRadius=8, maxRadius=15)
+
+    params = None
+    # Loop over the circles and draw them on the image
+    if circles is not None:
+        if len(circles[0]) == nb_kilobots:
+            params = (p1, p2)
+
+            for (x, y, radius) in circles[0]:
+                cv2.circle(image, (x, y), radius, (0, 255, 0), 2)
+
+            # write result to disk
+            path_save = path_dir + name_image + "_ro_" + str(p1) + "_" + str(p2) + ".jpg"
+            cv2.imwrite(path_save, image)
+            print("Image with edges detection save to : " + path_save)
+
+            cv2.destroyAllWindows()
+
+    return circles[0], params
+
+
+def if_not_list(list_of_lists, sub_list):
+    is_not_in_list_of_lists = True
+    for lst in list_of_lists:
+        if all(elem in lst for elem in sub_list):
+            is_not_in_list_of_lists = False
+            break
+
+    if is_not_in_list_of_lists:
+        return True
+
+    return False
 
 
 if __name__ == '__main__':
-    # video = "test02"
+    nb_k = 15
+
+    # video = "disque01"
     # path_save_frame = read_video(video)
     # list_files = os.listdir(path_save_frame)
 
-    nom_image = "anneau02"
-    path_save_image_e = edges_detection(nom_image)
-    path_save_image_be = black_edges(nom_image)
+    nom_image = "D01_OG"
+    image_rs = remove_shadow(nom_image)
+    image_be = black_edges(image_rs)
+
+    liste_params = []
+    all_circles = []
+
+    for i in range(10, 21, 1):
+        for j in range(15, 21, 1):
+            liste_circles, tuple_params = round_object(image_be, nb_k, i, j)
+            if tuple_params is not None:
+                liste_params.append(tuple_params)
+            if if_not_list(all_circles, liste_circles):
+                all_circles.append(liste_circles)
+
+    print(liste_params)
+    print(all_circles[0][:nb_k])
+
