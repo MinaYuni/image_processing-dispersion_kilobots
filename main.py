@@ -175,28 +175,110 @@ def if_not_list(list_of_lists, sub_list):
     return False
 
 
+def cross_detection(name_image):
+    # Load the image and convert it to grayscale
+    path_dir = "./data/images/"
+    path = path_dir + name_image + ".jpg"
+    image = cv2.imread(path)
+    gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+
+    # Threshold the image to create a binary image
+    threshold, thresh_image = cv2.threshold(gray, 127, 255, cv2.THRESH_BINARY)
+
+    # Use morphological transformations to remove noise and fill in small gaps
+    kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (5, 5))
+    thresh_image = cv2.morphologyEx(thresh_image, cv2.MORPH_CLOSE, kernel)
+
+    # Use contour detection to find the cross shape
+    contours, _ = cv2.findContours(thresh_image, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+
+    # Loop over the contours and draw them on the image
+    for contour in contours:
+        cv2.drawContours(image, [contour], 0, (0, 255, 0), 2)
+
+    # Save the result
+    new_name = name_image + "_cd"
+    path_save = path_dir + new_name + ".jpg"
+    cv2.imwrite(path_save, image)
+    print("Image with edges detection save to : " + path_save)
+
+    return new_name
+
+
+def add_cross_to_video(name_video):
+    frame_path = './data/frames/' + name_video
+
+    # Read the video from specified path
+    cap = cv2.VideoCapture("./data/videos/" + name_video + ".mp4")
+
+    try:
+        # creating a folder named data
+        if not os.path.exists('data'):
+            os.makedirs('data')
+        if not os.path.exists('./data/frames'):
+            os.makedirs('./data/frames')
+        if not os.path.exists(frame_path):
+            os.makedirs(frame_path)
+        else:
+            already_read = True
+            print("Vidéo déjà découpée : " + frame_path)
+    except OSError:  # if not created then raise error
+        print('Error: Creating directory of data')
+
+    currentframe = 0
+
+    while True:
+        ret, frame = cap.read()
+        if not ret:
+            break
+
+        height, width, _ = frame.shape
+        center = (width // 2, height // 2)
+        cv2.line(frame, center, (center[0], 0), (255, 255, 255), 2)
+        cv2.line(frame, center, (center[0], height), (255, 255, 255), 2)
+        cv2.line(frame, center, (0, center[1]), (255, 255, 255), 2)
+        cv2.line(frame, center, (width, center[1]), (255, 255, 255), 2)
+
+        # cv2.imshow('Frame', frame)
+
+        # if video is still left continue creating images
+        name = frame_path + '/' + name_video + '_cross_frame' + str(currentframe) + '.jpg'
+        print('Creating...' + name)
+
+        # writing the extracted images
+        cv2.imwrite(name, frame)
+
+        # increasing counter so that it will
+        # show how many frames are created
+        currentframe += 1
+
+    cap.release()
+    cv2.destroyAllWindows()
+
+
 if __name__ == '__main__':
     nb_k = 15
 
-    # video = "disque01"
+    video = "disque04"
     # path_save_frame = read_video(video)
     # list_files = os.listdir(path_save_frame)
+    add_cross_to_video(video)
 
-    nom_image = "D01_OG"
-    image_rs = remove_shadow(nom_image)
-    image_be = black_edges(image_rs)
+    # nom_image = "test03"
+    # image_rs = remove_shadow(nom_image)
+    # image_be = black_edges(image_rs)
 
-    liste_params = []
-    all_circles = []
-
-    for i in range(10, 21, 1):
-        for j in range(15, 21, 1):
-            liste_circles, tuple_params = round_object(image_be, nb_k, i, j)
-            if tuple_params is not None:
-                liste_params.append(tuple_params)
-            if if_not_list(all_circles, liste_circles):
-                all_circles.append(liste_circles)
-
-    print(liste_params)
-    print(all_circles[0][:nb_k])
+    # liste_params = []
+    # all_circles = []
+    #
+    # for i in range(10, 21, 1):
+    #     for j in range(15, 21, 1):
+    #         liste_circles, tuple_params = round_object(image_be, nb_k, i, j)
+    #         if tuple_params is not None:
+    #             liste_params.append(tuple_params)
+    #         if if_not_list(all_circles, liste_circles):
+    #             all_circles.append(liste_circles)
+    #
+    # print(liste_params)
+    # print(all_circles[0][:nb_k])
 
