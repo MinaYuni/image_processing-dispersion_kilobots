@@ -7,7 +7,6 @@ import math
 from skimage import data
 from scipy import misc, ndimage
 from PIL import Image, ImageFilter
-from moviepy.editor import VideoFileClip
 
 
 def video_to_images(name_video, frames_per_second=1):
@@ -267,17 +266,6 @@ def add_cross_to_video(name_video, path_video=None):
     cv2.destroyAllWindows()
 
 
-def cut_video(name_video, start, end):
-    # Open the video file
-    clip = VideoFileClip("./data/videos/" + name_video + ".mp4")
-
-    # Extract a subclip from the video
-    subclip = clip.subclip(start_time=start, end_time=end)
-
-    # Save the subclip to a new file
-    subclip.write_videofile("./data/videos/" + name_video + "_cut.mp4")
-
-
 def duration_video(name_video):
     # Load the video
     cap = cv2.VideoCapture("./data/videos/" + name_video + ".mp4")
@@ -295,7 +283,7 @@ def duration_video(name_video):
 
 
 def analyse(name_video, nb_kilobots):
-    path_frames, liste_frames = video_to_images(name_video)
+    path_frames, liste_frames = video_to_images(name_video, 2)
     list_files = os.listdir(path_frames)
     # add_cross_to_video(video)
 
@@ -311,6 +299,7 @@ def analyse(name_video, nb_kilobots):
         image_be = black_edges(image, path_frames)
 
         liste_params = []
+        liste_circles = []
 
         flag_detection = False
         i = 1
@@ -318,14 +307,12 @@ def analyse(name_video, nb_kilobots):
 
         while not flag_detection:
             while not flag_detection:
-                liste_circles, tuple_params = round_object(image_be, nb_kilobots, i, j)
+                pos_circles, tuple_params = round_object(image_be, nb_kilobots, i, j)
 
                 # si on a réussi à détecter le bon nombre de cercles (ça veut dire que la liste n'est pas nulle)
                 if tuple_params is not None:
                     liste_params.append(tuple_params)
-
-                    if if_not_list(all_circles, liste_circles):
-                        all_circles.append(liste_circles)
+                    liste_circles.append(pos_circles)
 
                     flag_detection = True
 
@@ -341,6 +328,7 @@ def analyse(name_video, nb_kilobots):
 
         # print(all_circles[0][:nb_k], liste_params)
         all_params.append(liste_params)
+        all_circles.append(liste_circles)
 
     return all_params, all_circles
 
@@ -350,13 +338,9 @@ if __name__ == '__main__':
     # Nombre frames = len(dictionnaire  positions récoltes) sur kilombo
 
     nb_k = 15
-    video = "disque04"
-    temps_video = duration_video(video)
-    cut_video(video, 9, temps_video)
+    video = "disque04_cut"
 
-    # p, c = analyse(video, nb_k)
-    # print(p)
-    # print(c)
+    p, c = analyse(video, nb_k)
 
     # params_possible = {}
     # for i in range(10, 21, 2):
