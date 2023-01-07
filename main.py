@@ -3,17 +3,15 @@ import cv2
 import os
 import matplotlib.pyplot as plt
 import numpy as np
+import math
 from skimage import data
 from scipy import misc, ndimage
 from PIL import Image, ImageFilter
+from moviepy.editor import VideoFileClip
 
 
-def read_video(name_video):
-    already_read = False
+def video_to_images(name_video, frames_per_second=1):
     frame_path = './data/frames/' + name_video
-
-    # Read the video from specified path
-    cam = cv2.VideoCapture("./data/videos/" + name_video + ".mp4")
 
     try:
         # creating a folder named data
@@ -23,46 +21,60 @@ def read_video(name_video):
             os.makedirs('./data/frames')
         if not os.path.exists(frame_path):
             os.makedirs(frame_path)
-        else:
-            already_read = True
-            print("Vidéo déjà découpée : " + frame_path)
     except OSError:  # if not created then raise error
         print('Error: Creating directory of data')
 
-    if not already_read:
-        print("CREATING FRAMES")
+    # Read the video from specified path
+    cam = cv2.VideoCapture("./data/videos/" + name_video + ".mp4")
 
-        currentframe = 0
+    frame_list = []
+    frame_rate = cam.get(cv2.CAP_PROP_FPS)  # video frame rate
 
-        while True:
-            # reading from frame
-            ret, frame = cam.read()
+    # frame
+    current_frame = 0
+    num_frame = 0
 
-            if ret:
+    if frames_per_second > frame_rate or frames_per_second == -1:
+        frames_per_second = frame_rate
+
+    while True:
+        # reading from frame
+        ret, frame = cam.read()
+
+        if ret:
+            if current_frame % (math.floor(frame_rate / frames_per_second)) == 0:
                 # if video is still left continue creating images
-                name = frame_path + '/' + name_video + '_frame' + str(currentframe) + '.jpg'
+                name = frame_path + '/' + name_video + '_frame' + str(num_frame) + '.jpg'
                 print('Creating...' + name)
 
-                # writing the extracted images
+                # adding frame to list
+                frame_list.append(frame)
+
+                # writing selected frames to images_path
                 cv2.imwrite(name, frame)
 
-                # increasing counter so that it will
-                # show how many frames are created
-                currentframe += 1
-            else:
-                break
+                num_frame += 1
+
+            current_frame += 1
+        else:
+            break
 
     # Release all space and windows once done
     cam.release()
     cv2.destroyAllWindows()
 
-    return frame_path
+    print("Nombre d'images enregistrées :", len(frame_list))
+
+    return frame_path, frame_list
 
 
-def edges_detection(name_image):
-    # Read the original image
+def edges_detection(name_image, path_image=None):
+    # Read image
     path_dir = "./data/images/"
-    path = path_dir + name_image + ".jpg"
+    if path_image is None:
+        path = path_dir + name_image + ".jpg"
+    else:
+        path = path_image + "/" + name_image + ".jpg"
     img = cv2.imread(path)
 
     # Convert to graycsale
@@ -88,10 +100,13 @@ def edges_detection(name_image):
     return path_save
 
 
-def black_edges(name_image):
-    # load image
+def black_edges(name_image, path_image=None):
+    # Read image
     path_dir = "./data/images/"
-    path = path_dir + name_image + ".jpg"
+    if path_image is None:
+        path = path_dir + name_image + ".jpg"
+    else:
+        path = path_image + "/" + name_image + ".jpg"
     img = cv2.imread(path)
 
     # convert to grayscale
@@ -104,17 +119,20 @@ def black_edges(name_image):
     new_name = name_image + "_be"
     path_save = path_dir + new_name + ".jpg"
     cv2.imwrite(path_save, thresh)
-    print("Image with edges detection save to : " + path_save)
+    print("Image with black edges detection save to : " + path_save)
 
     cv2.destroyAllWindows()
 
     return new_name
 
 
-def remove_shadow(name_image):
-    # load image
+def remove_shadow(name_image, path_image=None):
+    # Read image
     path_dir = "./data/images/"
-    path = path_dir + name_image + ".jpg"
+    if path_image is None:
+        path = path_dir + name_image + ".jpg"
+    else:
+        path = path_image + "/" + name_image + ".jpg"
     img = cv2.imread(path)
 
     # Convert the image to grayscale
@@ -127,17 +145,21 @@ def remove_shadow(name_image):
     new_name = name_image + "_rs"
     path_save = path_dir + new_name + ".jpg"
     cv2.imwrite(path_save, enhanced)
-    print("Image with edges detection save to : " + path_save)
+    print("Image with shadows removed save to : " + path_save)
 
     return new_name
 
 
-def round_object(name_image, nb_kilobots, p1, p2):
-    # load image
+def round_object(name_image, nb_kilobots, p1, p2, path_image=None):
+    # Read image
     path_dir = "./data/images/"
-    path = path_dir + name_image + ".jpg"
-    image = cv2.imread(path)
-    gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+    if path_image is None:
+        path = path_dir + name_image + ".jpg"
+    else:
+        path = path_image + "/" + name_image + ".jpg"
+    img = cv2.imread(path)
+
+    gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
 
     # Use the HoughCircles function to detect circles
     # liste des objets ronds détectés
@@ -150,14 +172,16 @@ def round_object(name_image, nb_kilobots, p1, p2):
             params = (p1, p2)
 
             for (x, y, radius) in circles[0]:
-                cv2.circle(image, (x, y), radius, (0, 255, 0), 2)
+                cv2.circle(img, (x, y), radius, (0, 255, 0), 2)
 
             # write result to disk
             path_save = path_dir + name_image + "_ro_" + str(p1) + "_" + str(p2) + ".jpg"
-            cv2.imwrite(path_save, image)
-            print("Image with edges detection save to : " + path_save)
+            cv2.imwrite(path_save, img)
+            print("Image with round objects detection save to : " + path_save)
 
             cv2.destroyAllWindows()
+    else:
+        return [], params
 
     return circles[0], params
 
@@ -175,37 +199,24 @@ def if_not_list(list_of_lists, sub_list):
     return False
 
 
-def cross_detection(name_image):
-    # Load the image and convert it to grayscale
-    path_dir = "./data/images/"
-    path = path_dir + name_image + ".jpg"
-    image = cv2.imread(path)
-    gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+def common_elements(list_of_lists, list_of_elements):
+    common = []
 
-    # Threshold the image to create a binary image
-    threshold, thresh_image = cv2.threshold(gray, 127, 255, cv2.THRESH_BINARY)
+    for element in list_of_lists[0]:
+        if all(element in x for x in list_of_lists):
+            common.append(element)
 
-    # Use morphological transformations to remove noise and fill in small gaps
-    kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (5, 5))
-    thresh_image = cv2.morphologyEx(thresh_image, cv2.MORPH_CLOSE, kernel)
-
-    # Use contour detection to find the cross shape
-    contours, _ = cv2.findContours(thresh_image, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
-
-    # Loop over the contours and draw them on the image
-    for contour in contours:
-        cv2.drawContours(image, [contour], 0, (0, 255, 0), 2)
-
-    # Save the result
-    new_name = name_image + "_cd"
-    path_save = path_dir + new_name + ".jpg"
-    cv2.imwrite(path_save, image)
-    print("Image with edges detection save to : " + path_save)
-
-    return new_name
+    return common
 
 
-def add_cross_to_video(name_video):
+def count_elements(list_of_lists, dict_of_elements):
+    for element in dict_of_elements.keys():
+        dict_of_elements[element] = sum(x.count(element) for x in list_of_lists)
+
+    return dict_of_elements
+
+
+def add_cross_to_video(name_video, path_video=None):
     frame_path = './data/frames/' + name_video
 
     # Read the video from specified path
@@ -256,29 +267,108 @@ def add_cross_to_video(name_video):
     cv2.destroyAllWindows()
 
 
+def cut_video(name_video, start, end):
+    # Open the video file
+    clip = VideoFileClip("./data/videos/" + name_video + ".mp4")
+
+    # Extract a subclip from the video
+    subclip = clip.subclip(start_time=start, end_time=end)
+
+    # Save the subclip to a new file
+    subclip.write_videofile("./data/videos/" + name_video + "_cut.mp4")
+
+
+def duration_video(name_video):
+    # Load the video
+    cap = cv2.VideoCapture("./data/videos/" + name_video + ".mp4")
+
+    # Get the number of frames and the frame rate
+    num_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+    fps = cap.get(cv2.CAP_PROP_FPS)
+
+    # Calculate the duration of the video in seconds
+    duration = num_frames / fps
+
+    cap.release()
+
+    return duration
+
+
+def analyse(name_video, nb_kilobots):
+    path_frames, liste_frames = video_to_images(name_video)
+    list_files = os.listdir(path_frames)
+    # add_cross_to_video(video)
+
+    liste_images = []
+    for file in list_files:
+        liste_images.append(file[:-4])
+
+    all_params = []
+    all_circles = []
+    for image in liste_images:
+        # image_rs = remove_shadow(image, path_frames)
+        # image_be = black_edges(image_rs)
+        image_be = black_edges(image, path_frames)
+
+        liste_params = []
+
+        flag_detection = False
+        i = 1
+        j = 1
+
+        while not flag_detection:
+            while not flag_detection:
+                liste_circles, tuple_params = round_object(image_be, nb_kilobots, i, j)
+
+                # si on a réussi à détecter le bon nombre de cercles (ça veut dire que la liste n'est pas nulle)
+                if tuple_params is not None:
+                    liste_params.append(tuple_params)
+
+                    if if_not_list(all_circles, liste_circles):
+                        all_circles.append(liste_circles)
+
+                    flag_detection = True
+
+                if j == 100:
+                    break
+                else:
+                    j += 1
+
+            if i == 100:
+                break
+            else:
+                i += 1
+
+        # print(all_circles[0][:nb_k], liste_params)
+        all_params.append(liste_params)
+
+    return all_params, all_circles
+
+
 if __name__ == '__main__':
+    # Secondes = temps simulation / len(dictionnaire  positions récoltes) sur kilombo
+    # Nombre frames = len(dictionnaire  positions récoltes) sur kilombo
+
     nb_k = 15
-
     video = "disque04"
-    # path_save_frame = read_video(video)
-    # list_files = os.listdir(path_save_frame)
-    add_cross_to_video(video)
+    temps_video = duration_video(video)
+    cut_video(video, 9, temps_video)
 
-    # nom_image = "test03"
-    # image_rs = remove_shadow(nom_image)
-    # image_be = black_edges(image_rs)
+    # p, c = analyse(video, nb_k)
+    # print(p)
+    # print(c)
 
-    # liste_params = []
-    # all_circles = []
-    #
-    # for i in range(10, 21, 1):
-    #     for j in range(15, 21, 1):
-    #         liste_circles, tuple_params = round_object(image_be, nb_k, i, j)
-    #         if tuple_params is not None:
-    #             liste_params.append(tuple_params)
-    #         if if_not_list(all_circles, liste_circles):
-    #             all_circles.append(liste_circles)
-    #
-    # print(liste_params)
-    # print(all_circles[0][:nb_k])
-
+    # params_possible = {}
+    # for i in range(10, 21, 2):
+    #     for j in range(10, 21, 2):
+    #         params_possible[(i, j)] = 0
+    # liste_test = [[(12, 12), (14, 12)], [(12, 12), (14, 12), (16, 12), (18, 12), (20, 12)], [], [(10, 14), (10, 16), (10, 18), (12, 14), (12, 16), (12, 18), (14, 14), (14, 16), (14, 18), (16, 14), (16, 16), (18, 14), (18, 16), (20, 14), (20, 16)], [(10, 14), (10, 16), (12, 14), (14, 14), (16, 14), (18, 14), (20, 14)], [(10, 14), (10, 16), (12, 14), (12, 16), (14, 14), (14, 16), (16, 14), (16, 16), (18, 14), (18, 16), (20, 14), (20, 16)], [(10, 14), (10, 16), (12, 12), (12, 14), (12, 16), (14, 12), (14, 14), (14, 16), (16, 12), (16, 14), (16, 16), (18, 12), (18, 14), (18, 16), (20, 12), (20, 14)], [(10, 16), (12, 16), (14, 16), (16, 16), (18, 16), (20, 16)], [(10, 14), (12, 14), (14, 14), (16, 14), (18, 14), (20, 14)], [], [(10, 14), (10, 16), (10, 18), (12, 14), (12, 16), (14, 14), (14, 16), (16, 14), (16, 16), (18, 14), (18, 16), (20, 14), (20, 16)], [(10, 14), (10, 16), (12, 14), (14, 14), (16, 14), (18, 14), (20, 14)], [], [(10, 14)], [(10, 14), (10, 16), (12, 14), (12, 16), (14, 14), (14, 16), (16, 14), (16, 16), (18, 14), (18, 16), (20, 14), (20, 16)], [(10, 16), (12, 16), (14, 16), (16, 16), (18, 16), (20, 16)], [(10, 14), (10, 16), (10, 18), (12, 14), (12, 16), (12, 18), (14, 14), (14, 16), (14, 18), (16, 14), (16, 16), (16, 18), (18, 14), (18, 16), (18, 18), (20, 14), (20, 16)], [(10, 14), (10, 16), (10, 18), (12, 12), (12, 14), (12, 16), (12, 18), (14, 12), (14, 14), (14, 16), (14, 18), (16, 12), (16, 14), (16, 16), (16, 18), (18, 12), (18, 14), (18, 16), (18, 18), (20, 12), (20, 14), (20, 16), (20, 18)], [(10, 16), (16, 14), (18, 14), (20, 14)], [(10, 16), (12, 16), (14, 16), (20, 14)], [(10, 14), (12, 14), (14, 12), (14, 14), (16, 12), (16, 14), (18, 12), (18, 14), (20, 12), (20, 14)], [], [(10, 14), (12, 14), (14, 14), (16, 14), (18, 14), (20, 12), (20, 14)], [(10, 14), (12, 14), (14, 14), (16, 14), (18, 14), (20, 14)], [(10, 14), (10, 16), (12, 14), (12, 16), (14, 14), (14, 16), (16, 14), (18, 14), (20, 14)], [(10, 14)], [(14, 12), (16, 12), (18, 12)], [(10, 14), (10, 16), (12, 14), (12, 16), (14, 14), (14, 16), (16, 14), (16, 16), (18, 14), (18, 16), (20, 14), (20, 16)], [], [(10, 14), (12, 14), (14, 14), (16, 14), (18, 14), (20, 14)], [(10, 14), (10, 16), (12, 14), (12, 16), (14, 14), (14, 16), (16, 14), (16, 16), (18, 14), (18, 16), (20, 14), (20, 16)]]
+    # print(len(liste_test))
+    # filtered_list = list(filter(None, liste_test))
+    # print(len(filtered_list))
+    # commun = count_elements(filtered_list, params_possible)
+    # filtered_dict = {k: v for k, v in commun.items() if v != 0}
+    # for key, value in filtered_dict.items():
+    #     print(f"{key}: {value}")
+    # sorted_dict = sorted(filtered_dict)
+    # print(sorted_dict)
